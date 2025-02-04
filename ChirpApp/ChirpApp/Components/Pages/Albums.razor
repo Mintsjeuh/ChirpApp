@@ -1,0 +1,51 @@
+﻿@using ChirpApp.Models
+@using ChirpApp.Services
+
+@page "/albums"
+@inject AlbumService albumService
+
+<h3>Albums</h3>
+
+@if (albumList == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Artist</th>
+                <th>Album name</th>
+                <th>Songs</th>
+                <th>Release date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var album in albumList)
+            {
+                <tr>
+                    <td>@album.Artist</td>
+                    <td>@album.AlbumName</td>
+                    <td>
+                    @foreach (var song in album.Songs) {
+                        <table class="table">
+                            <tr>@song</tr>
+                        </table>
+                    }
+                    </td>
+                    <td>@album.ReleaseDate.ToShortDateString()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    List<Album> albumList = new List<Album>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        albumList = await albumService.GetAlbums();
+    }
+}

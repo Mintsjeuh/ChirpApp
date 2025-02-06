@@ -1,12 +1,26 @@
 ﻿@using ChirpApp.Models
 @using ChirpApp.Services
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Forms
 
 @page "/albums"
 @inject AlbumService albumService
+@rendermode InteractiveServer
 
 <h3>Albums</h3>
 
-@if (albumList == null)
+<!-- Search and Filtering Inputs -->
+<!--
+@foreach (var filteredAlbum in FilteredAlbumList)
+{
+<p>@filteredAlbum.AlbumName</p>
+}
+-->
+
+<InputText @bind-Value="FilterText" @oninput="SetFilterValue"></InputText>
+
+
+@if (AlbumList == null)
 {
     <p><em>Loading...</em></p>
 }
@@ -22,17 +36,17 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var album in albumList)
+            @foreach (var album in FilteredAlbumList)
             {
                 <tr>
                     <td>@album.Artist</td>
                     <td>@album.AlbumName</td>
                     <td>
-                    @foreach (var song in album.Songs) {
-                        <table class="table">
-                            <tr>@song</tr>
-                        </table>
-                    }
+                        @foreach (var song in album.Songs) {
+                            <table class="table">
+                                <tr>@song</tr>
+                            </table>
+                        }
                     </td>
                     <td>@album.ReleaseDate.ToShortDateString()</td>
                 </tr>
@@ -42,10 +56,63 @@ else
 }
 
 @code {
-    List<Album> albumList = new List<Album>();
+    private List<Album> AlbumList = new List<Album>();
+    private List<Album> FilteredAlbumList = new List<Album>();
+    private string FilterText = "";
 
     protected override async Task OnInitializedAsync()
     {
-        albumList = await albumService.GetAlbums();
+        AlbumList = await albumService.GetAlbums();
+        FilteredAlbumList = AlbumList;
+    }
+
+    private void SetFilterValue(ChangeEventArgs e) {
+        if (e.Value != null)
+        {
+            FilterText = e.Value.ToString();
+        }
+        FilterAlbums();
+    }
+
+    private void FilterAlbums()
+    {
+        FilteredAlbumList = AlbumList
+        .Where(a => (
+            a.Artist.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+            a.AlbumName.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+            a.Songs.Any(song => (song.Contains(FilterText, StringComparison.OrdinalIgnoreCase)))
+            ))
+        .OrderByDescending(a => a.ReleaseDate)
+        .ToList();
+
+        if (FilteredAlbumList.Count != 0) { SplitInput(FilteredAlbumList); }
+    }
+
+    private void SplitInput(List<Album> albums) {
+        List<Album> startFilteredAlbums = new List<Album>();
+
+        foreach (var album in albums) {
+
+            var artistParts = album.Artist.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var albumNameParts = album.AlbumName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            var parts = artistParts.Concat(albumNameParts).ToArray();
+
+            foreach (var song in album.Songs) {
+                var songParts = song.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                parts = parts.Concat(songParts).ToArray();
+            }
+
+            for (int i = 0; i < parts.Length; i++) {
+                if (parts[i].StartsWith(FilterText, StringComparison.OrdinalIgnoreCase)) {
+                    startFilteredAlbums.Add(album);
+                    break;
+                }
+            }
+        }
+
+        FilteredAlbumList = startFilteredAlbums
+        .OrderByDescending(a => a.ReleaseDate)
+        .ToList();
     }
 }

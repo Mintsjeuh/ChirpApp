@@ -5,6 +5,7 @@ using ChirpApp.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System.Net.Http;
+using ChirpApp.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +16,19 @@ builder.Services.AddRazorComponents()
 
 // Add controllers
 builder.Services.AddControllers();
+
 builder.Services.AddRazorPages();
+
+// Add DbContext
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register services
+builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
+
+builder.Services.AddScoped<IAlbumService, AlbumService>();
+builder.Services.AddScoped<IAlbumApiService, AlbumApiService>();
+builder.Services.AddScoped<IAlbumFilterService, AlbumFilterService>();
 
 // Configure HttpClient
 builder.Services.AddScoped(sp => new HttpClient
@@ -23,12 +36,6 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri("https://localhost:7217/")
 });
 
-// Register AlbumService
-builder.Services.AddScoped<AlbumService>();
-
-// Add DbContext
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 

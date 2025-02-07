@@ -2,64 +2,117 @@
 @using ChirpApp.Services
 @using System.Linq
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
 
 @page "/albums"
-@inject AlbumService albumService
+@inject IAlbumApiService albumApiService
+@inject IAlbumFilterService albumFilterService
 @rendermode InteractiveServer
 
 <h3>Albums</h3>
 
-<!-- Search and Filtering Inputs -->
-<!--
-@foreach (var filteredAlbum in FilteredAlbumList)
-{
-<p>@filteredAlbum.AlbumName</p>
-}
--->
+<div class="row">
+    <div class="col-md-3">
+        <h5>Add album</h5>
+        <EditForm Model="albumFromForm" OnValidSubmit="SubmitForm" FormName="AddAlbum">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
 
-<EditForm Model="albumFromForm" OnValidSubmit="SubmitForm" FormName="AddAlbum">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <div>
-        <label>
-            Artist: 
-            <InputText @bind-Value="albumFromForm!.Artist" />
-        </label>
-    </div>
-    <div>
-        <label>
-            Album name:
-            <InputText @bind-Value="albumFromForm!.AlbumName" />
-        </label>
-    </div>
-    <div>
-        <label>
-            Songs:
-            <InputText @bind-Value="songInput" />
-            @* <button class="btn btn-primary" @onclick="AddToSongList">Add song</button> *@
-            <button class="btn btn-primary" @onclick="() => AddToSongList(songInput)">Add song</button>
-        </label>
-    </div>
-    <div>
-        <label>
-            Release date: 
-            <InputDate @bind-Value="albumFromForm!.ReleaseDate" />
-        </label>
-    </div>
-    <div>
-        <button type="submit">Submit</button>
-    </div>
-</EditForm>
+            <div class="form-group">
+                <label>Artist:</label>
+                <InputText @bind-Value="albumFromForm!.Artist" class="form-control"/>
+            </div>
 
-<div>
-    <label>
-        Filter album list:
-        <InputText @bind-Value="FilterText" @oninput="SetFilterValue"></InputText>
-    </label>
+            <div class="form-group">
+                <label>Album name:</label>
+                <InputText @bind-Value="albumFromForm!.AlbumName" class="form-control"/>
+            </div>
+
+            <div class="form-group">
+                <label>Songs:</label>
+                <InputText @bind-Value="songInput" class="form-control"/>
+                <button type="button" class="btn btn-primary" @onclick="() => AddToSongList(songInput)">Add song</button>
+            </div>
+
+            <div class="form-group">
+                <label>Release date:</label>
+                <InputDate @bind-Value="albumFromForm!.ReleaseDate" class="form-control"/>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="col-md-2">
+        <h1>@albumFromForm.Artist</h1>
+        <h3>@albumFromForm.AlbumName</h3>
+        <b>Songs:</b>
+        <div class="vstack gap-0">
+            @foreach (var song in songsFromForm) {
+                <div class="p-2">@song</div>
+            }
+        </div>
+        <em>@albumFromForm.ReleaseDate.ToShortDateString()</em>
+    </div>
+
+
+    @if (selectedAlbum != null)
+    {
+        <div class="col-md-3">
+            <h5>Edit album</h5>
+            <EditForm Model="selectedAlbum" OnValidSubmit="UpdateAlbum">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label>Artist:</label>
+                    <InputText @bind-Value="selectedAlbum!.Artist" class="form-control"/>
+                </div>
+
+                <div class="form-group">
+                    <label>Album name:</label>
+                    <InputText @bind-Value="selectedAlbum!.AlbumName" class="form-control"/>
+                </div>
+
+                <div class="form-group">
+                    <label>Songs:</label>
+                    <InputText @bind-Value="addSongUpdate" class="form-control" />
+                    <button type="button" class="btn btn-primary" @onclick="() => AddSongUpdate()">Add</button>
+                    @foreach (var song in selectedAlbum.Songs) {
+                        <table class="table">
+                            <tr>@song
+                            </tr>
+                            <button type="button" class="btn btn-danger" @onclick="() => RemoveSong(song)">Remove</button>
+                        </table>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label>Release date:</label>
+                    <InputDate @bind-Value="selectedAlbum!.ReleaseDate" class="form-control"/>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+<div class="row pt-5">
+    <div class="col-md-4">
+        <label>Filter album list:</label>
+        <InputText @bind-Value="searchTerm" @oninput="SetFilterValue" class="form-control"></InputText>
+    </div>
 </div>
 
 
-@if (AlbumList == null)
+
+@if (albumList == null)
 {
     <p><em>Loading...</em></p>
 }
@@ -68,14 +121,14 @@ else
     <table class="table">
         <thead>
             <tr>
-                <th>Artist</th>
-                <th>Album name</th>
-                <th>Songs</th>
-                <th>Release date</th>
+                <th class="w-25">Artist</th>
+                <th class="w-25">Album name</th>
+                <th class="w-25">Songs</th>
+                <th class="w-25">Release date</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var album in FilteredAlbumList)
+            @foreach (var album in filteredalbumList)
             {
                 <tr>
                     <td>@album.Artist</td>
@@ -88,6 +141,10 @@ else
                         }
                     </td>
                     <td>@album.ReleaseDate.ToShortDateString()</td>
+                    <td class="w-auto">
+                        <button class="btn btn-warning" @onclick="() => EditAlbum(album)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => RemoveAlbum(album.Id)">Remove</button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -95,67 +152,43 @@ else
 }
 
 @code {
-    private List<Album> AlbumList = new List<Album>();
-    private List<Album> FilteredAlbumList = new List<Album>();
-    private string FilterText = "";
+    private List<Album> albumList = new List<Album>();
+    private List<Album> filteredalbumList = new List<Album>();
+    private string searchTerm = "";
     private List<string> songsFromForm = new List<string>();
     private string songInput = "";
 
+    private Album albumFromForm { get; set; } = new Album
+        {
+            Artist = "",
+            AlbumName = "",
+            ReleaseDate = DateTime.UtcNow,
+            Songs = Array.Empty<string>()
+        };
+
+
+    private Album? selectedAlbum { get; set; } = null;
+    private List<string> updatedSongList = new List<string>();
+    private string addSongUpdate = "";
+
     protected override async Task OnInitializedAsync()
     {
-        AlbumList = await albumService.GetAlbums();
-        FilteredAlbumList = AlbumList;
+        await ReloadAlbumList();
     }
 
     private void SetFilterValue(ChangeEventArgs e) {
         if (e.Value != null)
         {
-            FilterText = e.Value.ToString();
+            searchTerm = e.Value.ToString();
         }
         FilterAlbums();
     }
 
-    private void FilterAlbums()
-    {
-        FilteredAlbumList = AlbumList
-        .Where(a => (
-            a.Artist.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
-            a.AlbumName.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
-            a.Songs.Any(song => (song.Contains(FilterText, StringComparison.OrdinalIgnoreCase)))
-            ))
-        .OrderByDescending(a => a.ReleaseDate)
-        .ToList();
 
-        if (FilteredAlbumList.Count != 0) { SplitInput(FilteredAlbumList); }
+    private void FilterAlbums() {
+        filteredalbumList = albumFilterService.FilterAlbums(albumList, searchTerm);
     }
 
-    private void SplitInput(List<Album> albums) {
-        List<Album> startFilteredAlbums = new List<Album>();
-
-        foreach (var album in albums) {
-
-            var artistParts = album.Artist.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var albumNameParts = album.AlbumName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            var parts = artistParts.Concat(albumNameParts).ToArray();
-
-            foreach (var song in album.Songs) {
-                var songParts = song.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                parts = parts.Concat(songParts).ToArray();
-            }
-
-            for (int i = 0; i < parts.Length; i++) {
-                if (parts[i].StartsWith(FilterText, StringComparison.OrdinalIgnoreCase)) {
-                    startFilteredAlbums.Add(album);
-                    break;
-                }
-            }
-        }
-
-        FilteredAlbumList = startFilteredAlbums
-        .OrderByDescending(a => a.ReleaseDate)
-        .ToList();
-    }
 
     public void AddToSongList(string song)
     {
@@ -166,27 +199,91 @@ else
         }
     }
 
-
-    //[SupplyParameterFromForm]
-    private Album albumFromForm { get; set; } = new Album
-        {
-            Artist = "",
-            AlbumName = "",
-            ReleaseDate = DateTime.UtcNow,
-            Songs = Array.Empty<string>()
-        };
-
-
     private async Task SubmitForm()
     {
         if (albumFromForm != null)
         {
             albumFromForm.Songs = songsFromForm.ToArray();
-            await albumService.AddAlbum(
+            await albumApiService.AddAlbum(
                 albumFromForm
             );
+
         }
-        AlbumList = await albumService.GetAlbums();
-        FilteredAlbumList = AlbumList;
+
+        ClearForm();
+
+        await ReloadAlbumList();
+    }
+
+    private void ClearForm() {
+        // Reset the album form
+        albumFromForm = new Album
+            {
+                Artist = "",
+                AlbumName = "",
+                ReleaseDate = DateTime.UtcNow,
+                Songs = Array.Empty<string>()
+            };
+
+        // Clear the song input and song list
+        songsFromForm.Clear();
+        songInput = "";
+    }
+
+    private async Task ReloadAlbumList() {
+        albumList = await albumApiService.GetAlbums();
+        filteredalbumList = albumList;
+    }
+
+
+    private void EditAlbum(Album album)
+    {
+        selectedAlbum = new Album
+            {
+                Id = album.Id,
+                Artist = album.Artist,
+                AlbumName = album.AlbumName,
+                ReleaseDate = album.ReleaseDate,
+                Songs = album.Songs.ToArray()
+            };
+    }
+
+    private async Task UpdateAlbum()
+    {
+        if (selectedAlbum != null)
+        {
+            await albumApiService.UpdateAlbum(selectedAlbum);
+            await ReloadAlbumList();
+            selectedAlbum = null; 
+        }
+    }
+
+    private void CancelEdit()
+    {
+        selectedAlbum = null;
+    }
+
+    private void AddSongUpdate() {
+        if (selectedAlbum != null && addSongUpdate != null)
+        {
+            updatedSongList = selectedAlbum.Songs.ToList();
+            updatedSongList.Add(addSongUpdate);
+            selectedAlbum.Songs = updatedSongList.ToArray();
+        }
+        addSongUpdate = "";
+    }
+
+    private void RemoveSong(string song)
+    {
+        if (selectedAlbum != null && song != null) {
+            updatedSongList = selectedAlbum.Songs.ToList();
+            updatedSongList.Remove(song);
+            selectedAlbum.Songs = updatedSongList.ToArray();
+        }
+    }
+
+    private async Task RemoveAlbum(int id) {
+        await albumApiService.DeleteAlbum(id);
+        await ReloadAlbumList();
     }
 }

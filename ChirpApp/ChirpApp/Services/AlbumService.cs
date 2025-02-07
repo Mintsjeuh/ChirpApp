@@ -1,34 +1,41 @@
 ﻿using ChirpApp.Models;
-using Microsoft.Extensions.ObjectPool;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text;
+using ChirpApp.Repositories;
 
 namespace ChirpApp.Services
 {
-    public class AlbumService
+    public class AlbumService : IAlbumService
     {
-        private readonly HttpClient _http;
+        private readonly IAlbumRepository _albumRepository;
 
-        public AlbumService(HttpClient http)
+        public AlbumService(IAlbumRepository albumRepository)
         {
-            _http = http;
+            _albumRepository = albumRepository;
         }
-        
+
         public async Task<List<Album>> GetAlbums()
         {
-            var albums = await _http.GetFromJsonAsync<List<Album>>("api/albums");
-            return albums ?? new List<Album>();
+            return await _albumRepository.GetAlbums();
         }
 
-        public async Task<List<Album>> AddAlbum(Album? album)
+        public async Task AddAlbum(Album album)
         {
-            if (album != null)
+            if (string.IsNullOrWhiteSpace(album.AlbumName))
             {
-                await _http.PostAsJsonAsync("api/albums/add", album);
+                throw new ArgumentException("Album name is required");
             }
-            var albums = await _http.GetFromJsonAsync<List<Album>>("api/albums");
-            return albums ?? new List<Album>();
+
+            await _albumRepository.AddAlbum(album);
+        }
+
+        public async Task DeleteAlbum(int id)
+        {
+            await _albumRepository.DeleteAlbum(id);
+        }
+
+        public async Task UpdateAlbum(Album album)
+        {
+            await _albumRepository.UpdateAlbum(album);
         }
     }
+
 }

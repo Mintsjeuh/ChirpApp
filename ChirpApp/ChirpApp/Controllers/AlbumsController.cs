@@ -1,5 +1,7 @@
 ﻿using ChirpApp.Data;
 using ChirpApp.Models;
+using ChirpApp.Repositories;
+using ChirpApp.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,33 +14,45 @@ namespace ChirpApp.Controllers
     [ApiController]
     public class AlbumsController : ControllerBase
     {
-        private readonly AppDbContext _appDbContext;
+        private readonly IAlbumService _albumService;
 
-        public AlbumsController(AppDbContext appDbContext) {
-            _appDbContext = appDbContext;
+        public AlbumsController(IAlbumService albumService) {
+            _albumService = albumService;
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<Album>> Get()
-        {
-            var albums = _appDbContext.Albums;
+        public async Task<ActionResult<List<Album>>> GetAlbums()
+        { 
+            var albums = await _albumService.GetAlbums();
             return Ok(albums);
         }
 
         [HttpPost("add")]
-        public IActionResult Add(Album? album)
+        public async Task<ActionResult> AddAlbum(Album? album)
         {
             if (album == null)
             {
-                return BadRequest("Album cannot be null");
+                return BadRequest("Can not add null album to database");
             }
-
-            _appDbContext.Albums.Add(album);
-            _appDbContext.SaveChanges(); // Persist changes to the database
-
-            return Ok("Album added successfully");
+            else
+            {
+                await _albumService.AddAlbum(album);
+                return Ok();
+            }
         }
 
+        [HttpDelete("delete/{id}")]
+        public async Task<ActionResult> DeleteAlbum(int id)
+        {
+            await _albumService.DeleteAlbum(id);
+            return Ok();
+        }
 
+        [HttpPut("update/{album.Id}")]
+        public async Task<ActionResult> UpdateAlbum([FromBody] Album album)
+        {
+            await _albumService.UpdateAlbum(album);
+            return Ok();
+        }
     }
 }

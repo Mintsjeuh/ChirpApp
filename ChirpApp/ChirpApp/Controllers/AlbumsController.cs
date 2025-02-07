@@ -24,5 +24,21 @@ namespace ChirpApp.Controllers
             var albums = _appDbContext.Albums;
             return Ok(albums);
         }
+
+        [HttpPost("add")]
+        public IActionResult Add(Album? album)
+        {
+            if (album == null)
+            {
+                return BadRequest("Album cannot be null");
+            }
+
+            _appDbContext.Albums.Add(album);
+            _appDbContext.SaveChanges(); // Persist changes to the database
+
+            return Ok("Album added successfully");
+        }
+
+
     }
 }
